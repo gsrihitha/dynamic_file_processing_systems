@@ -1,0 +1,31 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="row mb-4">
+  <div class="col text-center">
+    <form method="post" enctype="multipart/form-data">
+      <label class="btn btn-gradient btn-lg px-5 py-3">
+        <input type="file" name="file" hidden required>
+        <i class="bi bi-upload me-2"></i> Upload & Process
+      </label>
+    </form>
+  </div>
+</div>
+
+<h5 class="mb-3">Categories</h5>
+<div class="row g-3">
+  {% for cat, cnt in counts.items() %}
+  <div class="col-6 col-md-4 col-lg-3">
+    <div class="card thumb-card text-white h-100"
+         style="background-color: var(--cat-{{ cat.lower().replace(' ', '-') }}); cursor:pointer"
+         onclick="window.location='{{ url_for('show_category', category=cat) }}'">
+      <div class="card-body d-flex flex-column justify-content-center align-items-center">
+        <h6 class="card-title">{{ cat }}</h6>
+        <span class="badge bg-light text-dark">{{ cnt }}</span>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
+
+

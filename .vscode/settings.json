@@ -1,0 +1,10 @@
+{
+  // Ensure VS Code uses your venv’s Python:
+  "python.pythonPath": "venv/bin/python",
+
+  // Tell Pylance to treat ./app as a top-level module path:
+  "python.analysis.extraPaths": [
+    "./app"
+  ]
+}
+

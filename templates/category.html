@@ -1,0 +1,25 @@
+{% extends "layout.html" %}
+{% block content %}
+<h5>{{ category }} Logs</h5>
+{% if entries %}
+  <table class="table table-striped">
+    <thead>
+      <tr><th>Timestamp</th><th>Action</th><th>File</th></tr>
+    </thead>
+    <tbody>
+      {% for e in entries %}
+      <tr>
+        <td>{{ e.timestamp }}</td>
+        <td>{{ e.action }}</td>
+        <td>{{ e.file }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <p>No events recorded under <strong>{{ category }}</strong>.</p>
+{% endif %}
+<a href="{{ url_for('dashboard') }}" class="btn btn-secondary mt-3">← Back to Dashboard</a>
+{% endblock %}
+
+

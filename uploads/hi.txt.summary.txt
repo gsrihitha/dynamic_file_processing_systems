@@ -1,0 +1,3 @@
+Processed 'hi.txt':
+- Lines: 1
+- Words: 1

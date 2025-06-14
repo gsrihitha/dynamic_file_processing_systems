@@ -1,0 +1,3 @@
+Processed 'example.txt.summary.txt':
+- Lines: 3
+- Words: 8

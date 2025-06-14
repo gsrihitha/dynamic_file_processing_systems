@@ -1,0 +1,37 @@
+:root {
+    /* Category colors */
+    --cat-arrays-and-hashing:  #1f77b4;
+    --cat-two-pointers:        #ff7f0e;
+    --cat-sliding-window:      #2ca02c;
+    --cat-stack:               #d62728;
+    --cat-binary-search:       #9467bd;
+    --cat-linked-list:         #8c564b;
+    --cat-trees:               #e377c2;
+    --cat-heap:                #7f7f7f;
+    --cat-backtracking:        #bcbd22;
+    --cat-tries:               #17becf;
+    --cat-graphs:              #aec7e8;
+    --cat-dp:                  #ffbb78;
+    --cat-greedy:              #98df8a;
+    --cat-miscellaneous:       #c7c7c7;
+  }
+  
+  /* Upload button gradient */
+  .btn-gradient {
+    background: linear-gradient(45deg, #6a11cb, #2575fc);
+    color: #fff;
+    border: none;
+  }
+  .btn-gradient:hover {
+    opacity: 0.9;
+  }
+  
+  /* Category card hover effect */
+  .thumb-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .thumb-card:hover {
+    transform: scale(1.05);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+  }
+  

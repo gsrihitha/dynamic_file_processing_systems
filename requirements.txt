@@ -1,0 +1,7 @@
+Flask>=2.2
+Flask-SQLAlchemy
+Flask-Migrate
+Werkzeug
+watchdog
+networkx>=3.0
+

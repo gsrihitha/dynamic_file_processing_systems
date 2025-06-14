@@ -1,0 +1,11 @@
+ergnxdwhegnfxhxihn
+
+
+
+xiuwhenjrh\
+
+wrlkmeoxihrbi
+This is a test file for the current project.
+This file was created on 11 june at 12:34p.m. for the purpose of testing.
+This ia to learn about file monitoring in python using watchdog
+This is a attempt to learn about a system working with design

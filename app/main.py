@@ -1,70 +1,152 @@
+# app/main.py
+
 import os
-from flask import Flask, request # Required imports for web handling
+import threading
+from flask import (
+    request, render_template, redirect,
+    url_for, session, flash, jsonify
+)
+from werkzeug.utils import secure_filename
 
-#import graph based module that is defined with name processor as a sibling file
-from .processing import process_with_graph # type: ignore
+from . import create_app, db
+from .models import User
+from .file_io import read_file
+from .processing import process_file_pipeline
+from .fs_monitor import start_monitor, LOGS
 
-app = Flask(__name__) # Initializing the flask application
+# Create Flask app & initialize database
+app = create_app()
+with app.app_context():
+    db.create_all()
 
-# Ensure we have an uploads/ folder next to app/
-UPLOAD_FOLDER = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'uploads'))
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+# Directory to store uploads
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+UPLOAD_DIR = os.path.join(BASE_DIR, '..', 'uploads')
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-@app.route('/')
-def index():
-    '''Render a simple HTML form.
-    -method POST: form uses HTTP POST (POST is typically used when the client needs to submit data that will result in a change of state on the server (e.g., creating a new resource, submitting a form, uploading a file) rather than merely retrieving existing data )
-    - enctype multipart/formdata: This enables uploads of files'''
-    
-    return '''
-    <h1>Upload File</h1>
-    <form method="POST" action="/upload" enctype="multipart/form-data">
-      <input type="file" name="file">
-      <input type="submit" value="Upload & Process">
-    </form>
-    '''
+# Start filesystem monitor in background
+threading.Thread(target=start_monitor, args=(UPLOAD_DIR,), daemon=True).start()
 
-@app.route('/upload', methods=['POST'])
-def upload_file():
+# Tag → Category mapping (normalized keys: no spaces or hyphens)
+CATEGORIES = {
+    '#array':         'Arrays and Hashing',
+    '#twopointers':   'Two Pointers',
+    '#slidingwindow': 'Sliding Window',
+    '#stack':         'Stack',
+    '#binarysearch':  'Binary Search',
+    '#linkedlist':    'Linked List',
+    '#trees':         'Trees',
+    '#heap':          'Heap',
+    '#backtracking':  'BackTracking',
+    '#tries':         'Tries',
+    '#graphs':        'Graphs',
+    '#dp':            'DP',
+    '#greedy':        'Greedy'
+}
 
-    '''
-    This is done to handle file upload, processing, and return summary.
-    Steps involved:
-        1) Validate Request for the file part
-        2) Save uploaded files in a disk
-        3) Invoke processing pipeline
-        4) Return summary with HTML line breaks
-    '''
+# ─── Registration ───────────────────────────────────────────────────────
 
-    # 1) Did the browser send a multipart file part?
-    # Ensure if the 'file' part exists in the request
-    if 'file' not in request.files:
-        return "No file part in request. Did you set enctype?", 400
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        uname = request.form['username'].strip()
+        pwd = request.form['password'].strip()
+        if not uname or not pwd:
+            flash("Username & password required", "warning")
+            return redirect(url_for('register'))
+        if User.query.filter_by(username=uname).first():
+            flash("Username already taken", "danger")
+            return redirect(url_for('register'))
+        user = User(username=uname)
+        user.set_password(pwd)
+        db.session.add(user)
+        db.session.commit()
+        flash("Registered! Please log in.", "success")
+        return redirect(url_for('login'))
+    return render_template('register.html')
 
-    file = request.files['file']
-    # 2) Did they actually select a file or a non-empty file?
-    if file.filename == '':
-        return "No file selected.", 400
+# ─── Login / Logout ────────────────────────────────────────────────────
 
-    # 3) Save the uploaded file
-    save_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-    file.save(save_path)
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        uname = request.form['username'].strip()
+        pwd = request.form['password'].strip()
+        user = User.query.filter_by(username=uname).first()
+        if user and user.check_password(pwd):
+            session['user'] = uname
+            flash("Logged in successfully", "success")
+            return redirect(url_for('dashboard'))
+        flash("Invalid credentials", "danger")
+    return render_template('login.html')
 
-    # 4) Wire in your graph-based pipeline
-    summary = process_with_graph(file.filename)
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
 
-    # 5) Return HTML—replace newlines with <br> so the browser shows line breaks
-    return summary.replace('\n', '<br>')
+# ─── Dashboard & Upload ─────────────────────────────────────────────────
 
-if __name__ == '__main__':
-    app.run(debug=True) #Run the flask development server with the debug mode on
+@app.route('/', methods=['GET', 'POST'])
+def dashboard():
+    if 'user' not in session:
+        return redirect(url_for('login'))
 
+    # Handle file upload
+    if request.method == 'POST':
+        f = request.files.get('file')
+        if not f:
+            flash("No file selected", "warning")
+            return redirect(url_for('dashboard'))
+        filename = secure_filename(f.filename)
+        save_path = os.path.join(UPLOAD_DIR, filename)
+        f.save(save_path)
+        process_file_pipeline(filename)
+        flash("File uploaded & processed", "success")
+        return redirect(url_for('dashboard'))
 
+    # Compute counts per category, skip .summary.txt files
+    counts = {cat: 0 for cat in set(CATEGORIES.values()) | {'Miscellaneous'}}
+    for fn in os.listdir(UPLOAD_DIR):
+        if fn.endswith('.summary.txt'):
+            continue
+        lines = read_file(os.path.join(UPLOAD_DIR, fn))
+        cat = 'Miscellaneous'
+        for ln in lines:
+            norm = ln.lower().replace(' ', '').replace('-', '')
+            for tag, name in CATEGORIES.items():
+                if tag in norm:
+                    cat = name
+                    break
+            if cat != 'Miscellaneous':
+                break
+        counts[cat] += 1
 
+    return render_template('dashboard.html', counts=counts)
 
+# ─── Category Detail Page ───────────────────────────────────────────────
 
+@app.route('/category/<category>')
+def show_category(category):
+    if 'user' not in session:
+        return redirect(url_for('login'))
 
+    entries = []
+    for entry in reversed(LOGS):
+        fn = entry['file']
+        if fn.endswith('.summary.txt'):
+            continue
+        lines = read_file(os.path.join(UPLOAD_DIR, fn))
+        cat = 'Miscellaneous'
+        for ln in lines:
+            norm = ln.lower().replace(' ', '').replace('-', '')
+            for tag, name in CATEGORIES.items():
+                if tag in norm:
+                    cat = name
+                    break
+            if cat != 'Miscellaneous':
+                break
+        if cat == category:
+            entries.append(entry)
 
-
-
+    return render_template('category.html', category=category, entries=entries)
